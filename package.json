@@ -8,7 +8,7 @@
     "name": "Crystal Launcher Team"
   },
   "license": "MIT",
-    "scripts": {
+  "scripts": {
     "start": "concurrently \"npm run start:renderer\" \"wait-on http://localhost:3000 && npm run start:electron\"",
     "start:renderer": "cross-env BROWSER=none react-scripts start",
     "start:electron": "cross-env NODE_ENV=development electron .",
@@ -44,6 +44,7 @@
     "wait-on": "^7.2.0"
   },
   "build": {
+    "extends": null,
     "appId": "com.crystallauncher.app",
     "productName": "Crystal Launcher",
     "directories": {
@@ -73,7 +74,13 @@
     }
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version"
+    ]
   }
 }
