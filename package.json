@@ -4,8 +4,10 @@
   "description": "A custom Minecraft launcher with modern UI",
   "main": "src/main/main.js",
   "homepage": "https://github.com/yourusername/crystal-launcher",
-  "author": {
-    "name": "Crystal Launcher Team"
+ "author": {
+    "name": "Crystal Launcher Team",
+    "email": "solexoff03@gmail.com"
+  },
   },
   "license": "MIT",
   "scripts": {
