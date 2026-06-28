@@ -1,0 +1,79 @@
+{
+  "name": "crystal-launcher",
+  "version": "1.0.0",
+  "description": "A custom Minecraft launcher with modern UI",
+  "main": "src/main/main.js",
+  "homepage": "https://github.com/yourusername/crystal-launcher",
+  "author": {
+    "name": "Crystal Launcher Team"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "concurrently \"npm run start:renderer\" \"wait-on http://localhost:3000 && npm run start:electron\"",
+    "start:renderer": "cross-env BROWSER=none react-scripts start",
+    "start:electron": "cross-env NODE_ENV=development electron .",
+    "build": "npm run build:renderer && npm run build:electron",
+    "build:renderer": "react-scripts build",
+    "build:electron": "electron-builder build --publish never",
+    "build:win": "electron-builder build --win --publish never",
+    "build:mac": "electron-builder build --mac --publish never",
+    "build:linux": "electron-builder build --linux --publish never",
+    "pack": "electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^2.6.0",
+    "axios": "^1.6.0",
+    "adm-zip": "^0.5.10",
+    "electron-store": "^8.1.0",
+    "fs-extra": "^11.2.0",
+    "minecraft-launcher-core": "^3.18.1",
+    "node-fetch": "^2.7.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.4.0",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "react-scripts": "5.0.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.crystallauncher.app",
+    "productName": "Crystal Launcher",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "src/main/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "public/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "public/icon.icns"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "public/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version"]
+  }
+}
