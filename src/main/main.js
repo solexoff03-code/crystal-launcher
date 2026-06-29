@@ -220,7 +220,7 @@ ipcMain.handle('auth:getMicrosoftURL', async () => {
 ipcMain.handle('auth:microsoftCallback', async (_, code) => {
   try {
     const fetch = require('node-fetch');
-    const clientId = store.get('settings.azureClientId') || '';
+    const clientId = '00000000402b5328';
     if (!clientId) {
       return { success: false, error: 'Azure Client ID non configuré.' };
     }
