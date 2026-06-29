@@ -16,6 +16,7 @@ const store = new Store({
       closeOnLaunch: false,
       theme: 'dark',
       language: 'fr',
+      azureClientId: '',
     },
     profiles: [],
     accounts: [],
@@ -47,8 +48,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      // webSecurity must be false in production to allow local file:// loading
-      webSecurity: process.env.NODE_ENV === 'development',
+      // FIX: webSecurity doit être true en prod et false en dev (inversé avant)
+      webSecurity: process.env.NODE_ENV !== 'development',
     },
     icon: path.join(__dirname, '../../public/icon.png'),
     show: false,
@@ -60,8 +61,6 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
   } else {
-    // In production, __dirname is inside app.asar/src/main/
-    // build/ is at the root of the asar, two levels up
     const indexPath = path.join(__dirname, '..', '..', 'build', 'index.html');
     mainWindow.loadFile(indexPath);
   }
@@ -71,10 +70,8 @@ function createWindow() {
     if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 
-  // Log any load errors to help debug blank screen
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load:', errorCode, errorDescription, validatedURL);
-    // Try fallback path
     if (!isDev) {
       const fallback = path.join(app.getAppPath(), 'build', 'index.html');
       console.log('Trying fallback:', fallback);
@@ -131,8 +128,6 @@ ipcMain.handle('fs:getGameDir', () => store.get('settings.gameDir'));
 // ─── Minecraft Launch ──────────────────────────────────────────────────────
 ipcMain.handle('minecraft:getVersions', async () => {
   try {
-    const { Client, Authenticator } = require('minecraft-launcher-core');
-    // Fetch version manifest from Mojang
     const fetch = require('node-fetch');
     const res = await fetch('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json');
     const data = await res.json();
@@ -211,11 +206,13 @@ ipcMain.handle('minecraft:launch', async (_, { account, version, settings, profi
   }
 });
 
-// ─── Auth: Microsoft (device code flow) ───────────────────────────────────
+// ─── Auth: Microsoft ───────────────────────────────────────────────────────
 ipcMain.handle('auth:getMicrosoftURL', async () => {
-  // Opens the Microsoft login page in default browser
-  // Real implementation uses MSAL or manual OAuth
-  const clientId = 'YOUR_AZURE_CLIENT_ID'; // Dev must replace with real Azure app client ID
+  // FIX: clientId lu depuis le store (cohérent avec auth:microsoftCallback)
+  const clientId = store.get('settings.azureClientId') || '';
+  if (!clientId) {
+    return { error: 'Azure Client ID non configuré. Renseignez-le dans les paramètres.' };
+  }
   const redirectUri = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
   const scope = 'XboxLive.signin offline_access';
   const url = `https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&prompt=select_account`;
@@ -226,7 +223,10 @@ ipcMain.handle('auth:getMicrosoftURL', async () => {
 ipcMain.handle('auth:microsoftCallback', async (_, code) => {
   try {
     const fetch = require('node-fetch');
-    const clientId = store.get('settings.azureClientId') || 'YOUR_AZURE_CLIENT_ID';
+    const clientId = store.get('settings.azureClientId') || '';
+    if (!clientId) {
+      return { success: false, error: 'Azure Client ID non configuré.' };
+    }
     const redirectUri = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
 
     // Exchange code for token
