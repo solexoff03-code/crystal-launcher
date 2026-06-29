@@ -5,7 +5,8 @@
   "main": "src/main/main.js",
   "homepage": "./",
   "author": {
-    "name": "Crystal Launcher Team"
+    "name": "Crystal Launcher Team",
+    "email": "solexoff03@gmail.com"
   },
   "license": "MIT",
   "scripts": {
@@ -69,7 +70,7 @@
       "icon": "public/icon.icns"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": ["AppImage"],
       "icon": "public/icon.png",
       "category": "Game"
     },
