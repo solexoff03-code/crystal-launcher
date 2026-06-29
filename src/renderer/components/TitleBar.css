@@ -1,70 +1,8 @@
-.titlebar {
-  height: var(--titlebar-height);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  -webkit-app-region: no-drag;
-  flex-shrink: 0;
-  gap: 0;
-}
-
-.titlebar-drag {
-  flex: 1;
-  height: 100%;
-  -webkit-app-region: drag;
-}
-
-.titlebar-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  -webkit-app-region: no-drag;
-}
-
-.titlebar-icon {
-  font-size: 18px;
-  background: linear-gradient(135deg, var(--accent), var(--purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  line-height: 1;
-}
-
-.titlebar-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.3px;
-}
-
-.titlebar-controls {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.titlebar-btn {
-  width: 36px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background 0.15s, color 0.15s;
-}
-
-.titlebar-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.titlebar-btn--close:hover {
-  background: var(--red);
-  color: #fff;
-}
+.titlebar{height:var(--titlebar);background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;flex-shrink:0;-webkit-app-region:no-drag}
+.tb-dots{display:flex;gap:7px;align-items:center;-webkit-app-region:no-drag}
+.dot{width:12px;height:12px;border-radius:50%;cursor:pointer;transition:filter .15s;border:none}
+.dot-r{background:#FF5F57}.dot-y{background:#FEBC2E}.dot-g{background:#28C840}
+.dot:hover{filter:brightness(1.25)}
+.tb-drag{flex:1;-webkit-app-region:drag;display:flex;align-items:center;justify-content:center;gap:7px;height:100%}
+.tb-logo-small{font-size:15px;background:linear-gradient(135deg,var(--cyan),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.tb-title{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--txt1);letter-spacing:.5px}

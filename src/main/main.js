@@ -47,7 +47,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true,
+      // webSecurity must be false in production to allow local file:// loading
+      webSecurity: process.env.NODE_ENV === 'development',
     },
     icon: path.join(__dirname, '../../public/icon.png'),
     show: false,
@@ -55,15 +56,30 @@ function createWindow() {
   });
 
   const isDev = process.env.NODE_ENV === 'development';
-  const url = isDev
-    ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../../build/index.html')}`;
 
-  mainWindow.loadURL(url);
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:3000');
+  } else {
+    // In production, __dirname is inside app.asar/src/main/
+    // build/ is at the root of the asar, two levels up
+    const indexPath = path.join(__dirname, '..', '..', 'build', 'index.html');
+    mainWindow.loadFile(indexPath);
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
+  });
+
+  // Log any load errors to help debug blank screen
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load:', errorCode, errorDescription, validatedURL);
+    // Try fallback path
+    if (!isDev) {
+      const fallback = path.join(app.getAppPath(), 'build', 'index.html');
+      console.log('Trying fallback:', fallback);
+      mainWindow.loadFile(fallback);
+    }
   });
 
   mainWindow.on('closed', () => {

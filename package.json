@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "description": "A custom Minecraft launcher with modern UI",
   "main": "src/main/main.js",
-  "homepage": "https://github.com/yourusername/crystal-launcher",
+  "homepage": "./",
   "author": {
-    "name": "Crystal Launcher Team",
-    "email": "solexoff03@gmail.com"
+    "name": "Crystal Launcher Team"
   },
   "license": "MIT",
   "scripts": {
@@ -14,7 +13,7 @@
     "start:renderer": "cross-env BROWSER=none react-scripts start",
     "start:electron": "cross-env NODE_ENV=development electron .",
     "build": "npm run build:renderer && npm run build:electron",
-    "build:renderer": "cross-env SASS_PATH=node_modules react-scripts build",
+    "build:renderer": "react-scripts build",
     "build:electron": "electron-builder build --publish never",
     "build:win": "electron-builder build --win --publish never",
     "build:mac": "electron-builder build --mac --publish never",
@@ -45,11 +44,12 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "extends": null,
     "appId": "com.crystallauncher.app",
     "productName": "Crystal Launcher",
+    "asar": true,
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "public"
     },
     "files": [
       "build/**/*",
@@ -57,31 +57,31 @@
       "node_modules/**/*",
       "package.json"
     ],
+    "extraMetadata": {
+      "main": "src/main/main.js"
+    },
     "win": {
-      "target": ["nsis"],
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "public/icon.ico"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
       "icon": "public/icon.icns"
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "category": "Game"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   },
   "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version"
-    ]
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version"]
   }
 }
