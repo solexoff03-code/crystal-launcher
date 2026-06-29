@@ -209,10 +209,7 @@ ipcMain.handle('minecraft:launch', async (_, { account, version, settings, profi
 // ─── Auth: Microsoft ───────────────────────────────────────────────────────
 ipcMain.handle('auth:getMicrosoftURL', async () => {
   // FIX: clientId lu depuis le store (cohérent avec auth:microsoftCallback)
-  const clientId = store.get('settings.azureClientId') || '';
-  if (!clientId) {
-    return { error: 'Azure Client ID non configuré. Renseignez-le dans les paramètres.' };
-  }
+  const clientId = '00000000402b5328';
   const redirectUri = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
   const scope = 'XboxLive.signin offline_access';
   const url = `https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&prompt=select_account`;
