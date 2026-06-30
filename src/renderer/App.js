@@ -8,12 +8,11 @@ import AccountsPage from './pages/AccountsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilesPage from './pages/ProfilesPage';
 import ConsolePage from './pages/ConsolePage';
+import ShadersPage from './pages/ShadersPage';
 import './App.css';
 
-// ─── Context ─────────────────────────────────────────────────────────────────
 export const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
-
 const ipc = window.electron;
 
 export default function App() {
@@ -28,7 +27,6 @@ export default function App() {
   const [gameRunning, setGameRunning] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  // Load data from store
   useEffect(() => {
     async function load() {
       const [accs, activeId, s, profs, activeProf] = await Promise.all([
@@ -47,25 +45,13 @@ export default function App() {
     }
     load();
 
-    // Launcher events
-    const unsubLog = ipc.on('launcher:log', (msg) => {
-      setConsoleLogs(prev => [...prev.slice(-500), { type: 'log', text: msg, time: Date.now() }]);
+    const u1 = ipc.on('launcher:log', (msg) => setConsoleLogs(p => [...p.slice(-500), { type: 'log', text: msg, time: Date.now() }]));
+    const u2 = ipc.on('launcher:progress', (data) => setLaunchProgress(data));
+    const u3 = ipc.on('launcher:closed', (code) => {
+      setGameRunning(false); setLaunching(false); setLaunchProgress(null);
+      setConsoleLogs(p => [...p, { type: 'info', text: `Jeu fermé (code ${code})`, time: Date.now() }]);
     });
-    const unsubProgress = ipc.on('launcher:progress', (data) => {
-      setLaunchProgress(data);
-    });
-    const unsubClose = ipc.on('launcher:closed', (code) => {
-      setGameRunning(false);
-      setLaunching(false);
-      setLaunchProgress(null);
-      setConsoleLogs(prev => [...prev, { type: 'info', text: `Game exited with code ${code}`, time: Date.now() }]);
-    });
-
-    return () => {
-      unsubLog?.();
-      unsubProgress?.();
-      unsubClose?.();
-    };
+    return () => { u1?.(); u2?.(); u3?.(); };
   }, []);
 
   const setActiveAccount = async (account) => {
@@ -92,24 +78,15 @@ export default function App() {
   };
 
   const launchGame = async (version) => {
-    if (!activeAccount) return { error: 'No account selected' };
+    if (!activeAccount) return { error: 'Aucun compte sélectionné' };
     setLaunching(true);
-    setConsoleLogs([]);
-    setConsoleLogs([{ type: 'info', text: `Starting Minecraft ${version}...`, time: Date.now() }]);
-
+    setConsoleLogs([{ type: 'info', text: `Démarrage de Minecraft ${version}...`, time: Date.now() }]);
     const result = await ipc.minecraft.launch({
-      account: activeAccount,
-      version,
-      settings,
+      account: activeAccount, version, settings,
       profile: profiles.find(p => p.id === activeProfile),
     });
-
-    if (result.success) {
-      setGameRunning(true);
-    } else {
-      setLaunching(false);
-      setConsoleLogs(prev => [...prev, { type: 'error', text: `Launch failed: ${result.error}`, time: Date.now() }]);
-    }
+    if (result.success) setGameRunning(true);
+    else { setLaunching(false); setConsoleLogs(p => [...p, { type: 'error', text: `Erreur: ${result.error}`, time: Date.now() }]); }
     return result;
   };
 
@@ -117,18 +94,15 @@ export default function App() {
     accounts, activeAccount, setActiveAccount, refreshAccounts,
     settings, setSettings,
     profiles, activeProfile, setActiveProfileState, refreshProfiles,
-    launching, gameRunning, launchGame,
-    consoleLogs, launchProgress,
+    launching, gameRunning, launchGame, consoleLogs, launchProgress,
   };
 
-  if (!initialized) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-primary)', flexDirection: 'column', gap: 16 }}>
-        <div className="crystal-logo">⬡</div>
-        <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Chargement…</span>
-      </div>
-    );
-  }
+  if (!initialized) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#080B12', flexDirection: 'column', gap: 16 }}>
+      <div style={{ fontSize: 48, background: 'linear-gradient(135deg,#00D4FF,#7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>⬡</div>
+      <span style={{ color: '#475569', fontSize: 13 }}>Chargement…</span>
+    </div>
+  );
 
   return (
     <AppContext.Provider value={ctx}>
@@ -143,6 +117,7 @@ export default function App() {
                 <Route path="/versions" element={<VersionsPage />} />
                 <Route path="/profiles" element={<ProfilesPage />} />
                 <Route path="/accounts" element={<AccountsPage />} />
+                <Route path="/shaders" element={<ShadersPage />} />
                 <Route path="/console" element={<ConsolePage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" />} />
