@@ -126,6 +126,13 @@ ipcMain.handle('auth:openMicrosoftLogin', async () => {
   return new Promise((resolve) => {
     if (authWindow) { authWindow.focus(); return; }
 
+    let resolved = false;
+    const resolveOnce = (result) => {
+      if (resolved) return;
+      resolved = true;
+      resolve(result);
+    };
+
     authWindow = new BrowserWindow({
       width: 500,
       height: 650,
@@ -142,27 +149,23 @@ ipcMain.handle('auth:openMicrosoftLogin', async () => {
     authWindow.loadURL(AUTH_URL);
     authWindow.setMenuBarVisibility(false);
 
-    // Intercept the redirect to capture the auth code
-    authWindow.webContents.on('will-navigate', (event, url) => {
-      handleAuthRedirect(url, resolve);
-    });
-    authWindow.webContents.on('will-redirect', (event, url) => {
-      handleAuthRedirect(url, resolve);
-    });
-    authWindow.webContents.on('did-navigate', (event, url) => {
-      handleAuthRedirect(url, resolve);
-    });
+    const tryHandleRedirect = (url) => handleAuthRedirect(url, resolveOnce);
+
+    authWindow.webContents.on('will-navigate', (event, url) => tryHandleRedirect(url));
+    authWindow.webContents.on('will-redirect', (event, url) => tryHandleRedirect(url));
+    authWindow.webContents.on('did-navigate', (event, url) => tryHandleRedirect(url));
 
     authWindow.on('closed', () => {
       authWindow = null;
-      resolve({ success: false, error: 'Fenêtre fermée par l\'utilisateur' });
+      // Only treat as "cancelled" if we haven't already resolved with a real result
+      resolveOnce({ success: false, error: 'Fenêtre fermée par l\'utilisateur' });
     });
   });
 });
 
-function handleAuthRedirect(url, resolve) {
+function handleAuthRedirect(url, resolveOnce) {
   if (!url.includes('login.live.com/oauth20_desktop.srf') && !url.includes('code=')) return;
-  
+
   try {
     const urlObj = new URL(url);
     const code = urlObj.searchParams.get('code');
@@ -170,17 +173,20 @@ function handleAuthRedirect(url, resolve) {
 
     if (error) {
       if (authWindow) { authWindow.destroy(); authWindow = null; }
-      resolve({ success: false, error });
+      resolveOnce({ success: false, error });
       return;
     }
 
     if (code) {
-      if (authWindow) { authWindow.destroy(); authWindow = null; }
-      // Now exchange code for tokens
-      exchangeCodeForTokens(code).then(resolve);
+      // Show a "connecting..." state, exchange tokens FIRST, then close the window
+      // so the 'closed' event fires only after we already resolved with the real result.
+      exchangeCodeForTokens(code).then((result) => {
+        resolveOnce(result);
+        if (authWindow) { authWindow.destroy(); authWindow = null; }
+      });
     }
   } catch (e) {
-    // URL might not be parseable, ignore
+    // URL might not be parseable yet, ignore
   }
 }
 
