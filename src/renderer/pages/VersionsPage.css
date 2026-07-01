@@ -1,48 +1,56 @@
-/* ===== VERSIONS PAGE — MINECRAFT THEME ===== */
-.versions-page { display:flex; flex-direction:column; gap:16px; }
+.versions-page { display: flex; flex-direction: column; gap: 20px; }
 
-.toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-
-.pills {
-  display:flex; gap:2px;
-  background:#0A0A0A;
-  border:2px solid;
-  border-color:#141414 #3A3A3A #3A3A3A #141414;
-  padding:3px;
-}
-.pill {
-  padding:5px 12px;
-  border:none;
-  background:transparent;
-  color:var(--txt2);
-  font-family:var(--pixel); font-size:7px;
-  text-transform:uppercase; letter-spacing:.5px;
-  cursor:pointer;
-  transition:all .12s;
-}
-.pill:hover   { color:var(--txt0); }
-.pill.active  {
-  background:#5BAD2A;
-  color:#fff;
-  text-shadow:1px 1px 0 rgba(0,0,0,.5);
+.versions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.versions-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:6px; }
-
-.ver-card {
-  background:var(--bg2);
-  border:2px solid var(--border2);
-  box-shadow:inset 1px 1px 0 #242424, inset -1px -1px 0 #0A0A0A;
-  padding:12px 14px;
-  cursor:pointer;
-  transition:border-color .12s, transform .12s;
-  display:flex; flex-direction:column; gap:8px;
+.filter-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 3px;
 }
-.ver-card:hover           { border-color:#5BAD2A; transform:translateY(-1px); }
-.ver-card.installed       { border-color:rgba(91,173,42,.5); }
 
-.ver-top   { display:flex; align-items:center; justify-content:space-between; }
-.ver-id    { font-family:var(--pixel); font-size:9px; color:var(--txt0); letter-spacing:.3px; }
-.ver-dot   { width:7px; height:7px; background:#5BAD2A; box-shadow:0 0 5px #5BAD2A; }
-.ver-bottom{ display:flex; align-items:center; justify-content:space-between; }
-.ver-date  { font-size:10px; color:var(--txt2); font-family:var(--mono); }
+.filter-tab {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+.filter-tab--active { background: var(--bg-tertiary); color: var(--text-primary); }
+
+.versions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.version-card {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s, transform 0.1s;
+  cursor: default;
+}
+.version-card:hover { border-color: var(--border-light); transform: translateY(-1px); }
+.version-card--installed { border-color: var(--green-dark); }
+
+.version-card-top { display: flex; align-items: center; justify-content: space-between; }
+.version-id { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.version-installed-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+
+.version-card-bottom { display: flex; align-items: center; justify-content: space-between; }
+.version-date { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }

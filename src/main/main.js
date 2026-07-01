@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const fs = require('fs-extra');
 
+// Initialize store
 const store = new Store({
   name: 'crystal-launcher-config',
   defaults: {
@@ -13,6 +14,8 @@ const store = new Store({
       resolution: { width: 854, height: 480 },
       fullscreen: false,
       closeOnLaunch: false,
+      theme: 'dark',
+      language: 'fr',
     },
     profiles: [],
     accounts: [],
@@ -21,23 +24,15 @@ const store = new Store({
   },
 });
 
+// Ensure game directory exists
 const gameDir = store.get('settings.gameDir');
 fs.ensureDirSync(gameDir);
 fs.ensureDirSync(path.join(gameDir, 'versions'));
 fs.ensureDirSync(path.join(gameDir, 'mods'));
 fs.ensureDirSync(path.join(gameDir, 'resourcepacks'));
-fs.ensureDirSync(path.join(gameDir, 'shaderpacks'));
-fs.ensureDirSync(path.join(gameDir, 'skins'));
 
 let mainWindow;
-let authWindow;
 let launchProcess = null;
-
-// ─── Microsoft OAuth via embedded browser window ───────────────────────────
-// Uses the official Xbox/Minecraft OAuth flow with a real redirect capture
-const MS_CLIENT_ID = '00000000402b5328'; // Official Xbox Live client ID
-const REDIRECT_URI = 'https://login.live.com/oauth20_desktop.srf';
-const AUTH_URL = `https://login.live.com/oauth20_authorize.srf?client_id=${MS_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=XboxLive.signin%20offline_access&prompt=select_account`;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -46,33 +41,29 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     frame: false,
-    backgroundColor: '#080B12',
+    transparent: false,
+    backgroundColor: '#0d1117',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: process.env.NODE_ENV === 'development',
+      webSecurity: true,
     },
+    icon: path.join(__dirname, '../../public/icon.png'),
     show: false,
+    titleBarStyle: 'hidden',
   });
 
   const isDev = process.env.NODE_ENV === 'development';
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:3000');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', '..', 'build', 'index.html'));
-  }
+  const url = isDev
+    ? 'http://localhost:3000'
+    : `file://${path.join(__dirname, '../../build/index.html')}`;
+
+  mainWindow.loadURL(url);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
-  });
-
-  mainWindow.webContents.on('did-fail-load', () => {
-    if (!isDev) {
-      const fallback = path.join(app.getAppPath(), 'build', 'index.html');
-      mainWindow.loadFile(fallback);
-    }
   });
 
   mainWindow.on('closed', () => {
@@ -100,128 +91,155 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow?.close());
 
-// ─── Store ─────────────────────────────────────────────────────────────────
+// ─── Store / Settings ──────────────────────────────────────────────────────
 ipcMain.handle('store:get', (_, key) => store.get(key));
 ipcMain.handle('store:set', (_, key, value) => { store.set(key, value); return true; });
 ipcMain.handle('store:delete', (_, key) => { store.delete(key); return true; });
 
-// ─── FS ────────────────────────────────────────────────────────────────────
+// ─── File system ──────────────────────────────────────────────────────────
 ipcMain.handle('fs:selectDir', async () => {
-  const r = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
-  return r.canceled ? null : r.filePaths[0];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  });
+  return result.canceled ? null : result.filePaths[0];
 });
-ipcMain.handle('fs:selectFile', async (_, filters) => {
-  const r = await dialog.showOpenDialog(mainWindow, { properties: ['openFile'], filters: filters || [] });
-  return r.canceled ? null : r.filePaths[0];
+
+ipcMain.handle('fs:exists', (_, filePath) => fs.existsSync(filePath));
+ipcMain.handle('fs:readdir', (_, dirPath) => {
+  try { return fs.readdirSync(dirPath); }
+  catch { return []; }
 });
-ipcMain.handle('fs:exists', (_, p) => fs.existsSync(p));
-ipcMain.handle('fs:readdir', (_, p) => { try { return fs.readdirSync(p); } catch { return []; } });
+
 ipcMain.handle('fs:getGameDir', () => store.get('settings.gameDir'));
-ipcMain.handle('fs:copyFile', async (_, src, dest) => {
-  try { await fs.copy(src, dest); return true; } catch { return false; }
+
+// ─── Minecraft Launch ──────────────────────────────────────────────────────
+ipcMain.handle('minecraft:getVersions', async () => {
+  try {
+    const { Client, Authenticator } = require('minecraft-launcher-core');
+    // Fetch version manifest from Mojang
+    const fetch = require('node-fetch');
+    const res = await fetch('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json');
+    const data = await res.json();
+    return {
+      latest: data.latest,
+      versions: data.versions.map(v => ({
+        id: v.id,
+        type: v.type,
+        releaseTime: v.releaseTime,
+      })),
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
 });
 
-// ─── Microsoft Auth — embedded window ─────────────────────────────────────
-ipcMain.handle('auth:openMicrosoftLogin', async () => {
-  return new Promise((resolve) => {
-    if (authWindow) { authWindow.focus(); return; }
+ipcMain.handle('minecraft:launch', async (_, { account, version, settings, profile }) => {
+  try {
+    const { Client } = require('minecraft-launcher-core');
+    const launcher = new Client();
+    const gameDir = settings.gameDir || store.get('settings.gameDir');
 
-    let resolved = false;
-    const resolveOnce = (result) => {
-      if (resolved) return;
-      resolved = true;
-      resolve(result);
+    const opts = {
+      authorization: {
+        access_token: account.access_token,
+        client_token: account.client_token || 'crystal-launcher',
+        uuid: account.uuid,
+        name: account.username,
+        meta: {
+          xuid: account.xuid || '',
+          type: account.type || 'msa',
+        },
+      },
+      root: gameDir,
+      version: {
+        number: version,
+        type: 'release',
+      },
+      memory: {
+        max: `${settings.ram?.max || 2048}M`,
+        min: `${settings.ram?.min || 1024}M`,
+      },
+      window: settings.fullscreen
+        ? undefined
+        : {
+            width: settings.resolution?.width || 854,
+            height: settings.resolution?.height || 480,
+            fullscreen: false,
+          },
+      javaPath: settings.javaPath || undefined,
+      overrides: profile?.jvmArgs
+        ? { jvm: profile.jvmArgs.split(' ') }
+        : undefined,
     };
 
-    authWindow = new BrowserWindow({
-      width: 500,
-      height: 650,
-      parent: mainWindow,
-      modal: true,
-      title: 'Connexion Microsoft',
-      backgroundColor: '#ffffff',
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-      },
-    });
+    launcher.on('debug', (e) => mainWindow?.webContents.send('launcher:log', e));
+    launcher.on('data', (e) => mainWindow?.webContents.send('launcher:log', e));
+    launcher.on('progress', (e) =>
+      mainWindow?.webContents.send('launcher:progress', e)
+    );
+    launcher.on('close', (code) =>
+      mainWindow?.webContents.send('launcher:closed', code)
+    );
+    launcher.on('package-extract', (e) =>
+      mainWindow?.webContents.send('launcher:log', `Extracting: ${e}`)
+    );
 
-    authWindow.loadURL(AUTH_URL);
-    authWindow.setMenuBarVisibility(false);
+    launchProcess = await launcher.launch(opts);
 
-    const tryHandleRedirect = (url) => handleAuthRedirect(url, resolveOnce);
+    if (settings.closeOnLaunch) mainWindow?.hide();
 
-    authWindow.webContents.on('will-navigate', (event, url) => tryHandleRedirect(url));
-    authWindow.webContents.on('will-redirect', (event, url) => tryHandleRedirect(url));
-    authWindow.webContents.on('did-navigate', (event, url) => tryHandleRedirect(url));
-
-    authWindow.on('closed', () => {
-      authWindow = null;
-      // Only treat as "cancelled" if we haven't already resolved with a real result
-      resolveOnce({ success: false, error: 'Fenêtre fermée par l\'utilisateur' });
-    });
-  });
+    return { success: true };
+  } catch (err) {
+    console.error('Launch error:', err);
+    return { success: false, error: err.message };
+  }
 });
 
-function handleAuthRedirect(url, resolveOnce) {
-  if (!url.includes('login.live.com/oauth20_desktop.srf') && !url.includes('code=')) return;
+// ─── Auth: Microsoft (device code flow) ───────────────────────────────────
+ipcMain.handle('auth:getMicrosoftURL', async () => {
+  // Opens the Microsoft login page in default browser
+  // Real implementation uses MSAL or manual OAuth
+  const clientId = 'YOUR_AZURE_CLIENT_ID'; // Dev must replace with real Azure app client ID
+  const redirectUri = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
+  const scope = 'XboxLive.signin offline_access';
+  const url = `https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&prompt=select_account`;
+  shell.openExternal(url);
+  return { url };
+});
 
-  try {
-    const urlObj = new URL(url);
-    const code = urlObj.searchParams.get('code');
-    const error = urlObj.searchParams.get('error');
-
-    if (error) {
-      if (authWindow) { authWindow.destroy(); authWindow = null; }
-      resolveOnce({ success: false, error });
-      return;
-    }
-
-    if (code) {
-      // Show a "connecting..." state, exchange tokens FIRST, then close the window
-      // so the 'closed' event fires only after we already resolved with the real result.
-      exchangeCodeForTokens(code).then((result) => {
-        resolveOnce(result);
-        if (authWindow) { authWindow.destroy(); authWindow = null; }
-      });
-    }
-  } catch (e) {
-    // URL might not be parseable yet, ignore
-  }
-}
-
-async function exchangeCodeForTokens(code) {
+ipcMain.handle('auth:microsoftCallback', async (_, code) => {
   try {
     const fetch = require('node-fetch');
+    const clientId = store.get('settings.azureClientId') || 'YOUR_AZURE_CLIENT_ID';
+    const redirectUri = 'https://login.microsoftonline.com/common/oauth2/nativeclient';
 
-    // 1. Exchange code for MS token
-    const tokenRes = await fetch('https://login.live.com/oauth20_token.srf', {
+    // Exchange code for token
+    const tokenRes = await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: MS_CLIENT_ID,
+        client_id: clientId,
         code,
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
-        redirect_uri: REDIRECT_URI,
-      }).toString(),
+        scope: 'XboxLive.signin offline_access',
+      }),
     });
     const tokens = await tokenRes.json();
-    if (!tokens.access_token) return { success: false, error: 'Token Microsoft invalide: ' + JSON.stringify(tokens) };
 
-    // 2. XBL
+    // XBL auth
     const xblRes = await fetch('https://user.auth.xboxlive.com/user/authenticate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
-        Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: tokens.access_token },
+        Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: `d=${tokens.access_token}` },
         RelyingParty: 'http://auth.xboxlive.com',
         TokenType: 'JWT',
       }),
     });
     const xbl = await xblRes.json();
-    if (!xbl.Token) return { success: false, error: 'XBL auth échoué' };
 
-    // 3. XSTS
+    // XSTS
     const xstsRes = await fetch('https://xsts.auth.xboxlive.com/xsts/authorize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -232,24 +250,21 @@ async function exchangeCodeForTokens(code) {
       }),
     });
     const xsts = await xstsRes.json();
-    if (!xsts.Token) return { success: false, error: 'XSTS auth échoué: ' + JSON.stringify(xsts) };
     const userHash = xsts.DisplayClaims.xui[0].uhs;
 
-    // 4. Minecraft token
+    // Minecraft token
     const mcRes = await fetch('https://api.minecraftservices.com/authentication/login_with_xbox', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xsts.Token}` }),
     });
     const mc = await mcRes.json();
-    if (!mc.access_token) return { success: false, error: 'Token Minecraft invalide' };
 
-    // 5. Profile
+    // Get profile
     const profileRes = await fetch('https://api.minecraftservices.com/minecraft/profile', {
       headers: { Authorization: `Bearer ${mc.access_token}` },
     });
     const profile = await profileRes.json();
-    if (!profile.id) return { success: false, error: 'Pas de licence Minecraft sur ce compte' };
 
     const account = {
       id: profile.id,
@@ -258,23 +273,23 @@ async function exchangeCodeForTokens(code) {
       access_token: mc.access_token,
       refresh_token: tokens.refresh_token,
       type: 'msa',
-      skins: profile.skins || [],
+      skins: profile.skins,
     };
 
+    // Save account
     const accounts = store.get('accounts') || [];
     const idx = accounts.findIndex(a => a.uuid === account.uuid);
     if (idx >= 0) accounts[idx] = account;
     else accounts.push(account);
     store.set('accounts', accounts);
-    store.set('activeAccount', account.id);
+    store.set('activeAccount', account.uuid);
 
     return { success: true, account };
   } catch (err) {
     return { success: false, error: err.message };
   }
-}
+});
 
-// ─── Offline auth ──────────────────────────────────────────────────────────
 ipcMain.handle('auth:offline', async (_, username) => {
   const { v4: uuidv4 } = require('uuid');
   const account = {
@@ -283,7 +298,6 @@ ipcMain.handle('auth:offline', async (_, username) => {
     username,
     access_token: '0',
     type: 'offline',
-    skins: [],
   };
   const accounts = store.get('accounts') || [];
   accounts.push(account);
@@ -292,138 +306,16 @@ ipcMain.handle('auth:offline', async (_, username) => {
   return { success: true, account };
 });
 
-ipcMain.handle('auth:remove', async (_, id) => {
-  const accounts = (store.get('accounts') || []).filter(a => a.id !== id);
+ipcMain.handle('auth:remove', async (_, accountId) => {
+  const accounts = (store.get('accounts') || []).filter(a => a.id !== accountId);
   store.set('accounts', accounts);
-  if (store.get('activeAccount') === id) store.set('activeAccount', accounts[0]?.id || null);
+  if (store.get('activeAccount') === accountId) {
+    store.set('activeAccount', accounts[0]?.id || null);
+  }
   return { success: true };
 });
 
-// ─── Skin management ───────────────────────────────────────────────────────
-ipcMain.handle('skin:import', async (_, accountId) => {
-  const r = await dialog.showOpenDialog(mainWindow, {
-    title: 'Importer un skin',
-    properties: ['openFile'],
-    filters: [{ name: 'Image PNG', extensions: ['png'] }],
-  });
-  if (r.canceled) return { success: false };
-  
-  const skinPath = r.filePaths[0];
-  const skinsDir = path.join(store.get('settings.gameDir'), 'skins');
-  const destPath = path.join(skinsDir, `${accountId}.png`);
-  
-  try {
-    await fs.copy(skinPath, destPath);
-    // Update account with local skin path
-    const accounts = store.get('accounts') || [];
-    const idx = accounts.findIndex(a => a.id === accountId);
-    if (idx >= 0) {
-      accounts[idx].localSkin = destPath;
-      store.set('accounts', accounts);
-    }
-    return { success: true, skinPath: destPath };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('skin:getPath', (_, accountId) => {
-  const skinsDir = path.join(store.get('settings.gameDir'), 'skins');
-  const skinPath = path.join(skinsDir, `${accountId}.png`);
-  return fs.existsSync(skinPath) ? skinPath : null;
-});
-
-// ─── Shaders ───────────────────────────────────────────────────────────────
-ipcMain.handle('shaders:list', () => {
-  const shadersDir = path.join(store.get('settings.gameDir'), 'shaderpacks');
-  try {
-    return fs.readdirSync(shadersDir).filter(f => f.endsWith('.zip') || fs.statSync(path.join(shadersDir, f)).isDirectory());
-  } catch { return []; }
-});
-
-ipcMain.handle('shaders:install', async () => {
-  const r = await dialog.showOpenDialog(mainWindow, {
-    title: 'Installer un shader',
-    properties: ['openFile'],
-    filters: [{ name: 'Shader Pack', extensions: ['zip'] }],
-  });
-  if (r.canceled) return { success: false };
-  
-  const shadersDir = path.join(store.get('settings.gameDir'), 'shaderpacks');
-  const filename = path.basename(r.filePaths[0]);
-  const dest = path.join(shadersDir, filename);
-  
-  try {
-    await fs.copy(r.filePaths[0], dest);
-    return { success: true, name: filename };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('shaders:delete', async (_, name) => {
-  const shadersDir = path.join(store.get('settings.gameDir'), 'shaderpacks');
-  try {
-    await fs.remove(path.join(shadersDir, name));
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('shaders:openFolder', () => {
-  const shadersDir = path.join(store.get('settings.gameDir'), 'shaderpacks');
-  shell.openPath(shadersDir);
-});
-
-// ─── Minecraft versions ────────────────────────────────────────────────────
-ipcMain.handle('minecraft:getVersions', async () => {
-  try {
-    const fetch = require('node-fetch');
-    const res = await fetch('https://launchermeta.mojang.com/mc/game/version_manifest_v2.json');
-    const data = await res.json();
-    return { latest: data.latest, versions: data.versions.map(v => ({ id: v.id, type: v.type, releaseTime: v.releaseTime })) };
-  } catch (err) {
-    return { error: err.message };
-  }
-});
-
-ipcMain.handle('minecraft:launch', async (_, { account, version, settings, profile }) => {
-  try {
-    const { Client } = require('minecraft-launcher-core');
-    const launcher = new Client();
-    const dir = settings.gameDir || store.get('settings.gameDir');
-
-    const opts = {
-      authorization: {
-        access_token: account.access_token,
-        client_token: 'crystal-launcher',
-        uuid: account.uuid,
-        name: account.username,
-        meta: { xuid: account.xuid || '', type: account.type || 'msa' },
-      },
-      root: dir,
-      version: { number: version, type: 'release' },
-      memory: { max: `${settings.ram?.max || 2048}M`, min: `${settings.ram?.min || 1024}M` },
-      window: settings.fullscreen ? undefined : { width: settings.resolution?.width || 854, height: settings.resolution?.height || 480, fullscreen: false },
-      javaPath: settings.javaPath || undefined,
-      overrides: profile?.jvmArgs ? { jvm: profile.jvmArgs.split(' ') } : undefined,
-    };
-
-    launcher.on('debug', (e) => mainWindow?.webContents.send('launcher:log', e));
-    launcher.on('data', (e) => mainWindow?.webContents.send('launcher:log', e));
-    launcher.on('progress', (e) => mainWindow?.webContents.send('launcher:progress', e));
-    launcher.on('close', (code) => mainWindow?.webContents.send('launcher:closed', code));
-
-    launchProcess = await launcher.launch(opts);
-    if (settings.closeOnLaunch) mainWindow?.hide();
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-// ─── Java ──────────────────────────────────────────────────────────────────
+// ─── Java detection ────────────────────────────────────────────────────────
 ipcMain.handle('java:detect', async () => {
   const { exec } = require('child_process');
   return new Promise(resolve => {
@@ -435,5 +327,6 @@ ipcMain.handle('java:detect', async () => {
   });
 });
 
-ipcMain.handle('app:version', () => app.getVersion());
+// ─── Open external links ───────────────────────────────────────────────────
 ipcMain.on('open:external', (_, url) => shell.openExternal(url));
+ipcMain.handle('app:version', () => app.getVersion());
