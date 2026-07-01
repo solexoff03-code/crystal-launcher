@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog, session } = require('electro
 const path = require('path');
 const Store = require('electron-store');
 const fs = require('fs-extra');
+const { autoUpdater } = require('electron-updater');
 
 const store = new Store({
   name: 'crystal-launcher-config',
@@ -83,6 +84,37 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // ─── Auto-updater ───────────────────────────────────────────────────────
+  const isDev = process.env.NODE_ENV === 'development';
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+
+    autoUpdater.on('update-available', () => {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Mise à jour disponible',
+        message: 'Une nouvelle version de Crystal Launcher est disponible. Elle sera téléchargée en arrière-plan.',
+        buttons: ['OK'],
+      });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Mise à jour prête',
+        message: 'La mise à jour a été téléchargée. Crystal Launcher va redémarrer pour l\'installer.',
+        buttons: ['Redémarrer maintenant', 'Plus tard'],
+      }).then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall();
+      });
+    });
+
+    autoUpdater.on('error', (err) => {
+      console.error('AutoUpdater error:', err);
+    });
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

@@ -79,6 +79,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "solexoff03-code",
+      "repo": "crystal-launcher"
     }
   },
   "browserslist": {
