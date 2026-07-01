@@ -8,6 +8,7 @@ import AccountsPage from './pages/AccountsPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilesPage from './pages/ProfilesPage';
 import ConsolePage from './pages/ConsolePage';
+import ShadersPage from './pages/ShadersPage';
 import './App.css';
 
 // ─── Context ─────────────────────────────────────────────────────────────────
@@ -144,6 +145,7 @@ export default function App() {
                 <Route path="/profiles" element={<ProfilesPage />} />
                 <Route path="/accounts" element={<AccountsPage />} />
                 <Route path="/console" element={<ConsolePage />} />
+                <Route path="/shaders" element={<ShadersPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

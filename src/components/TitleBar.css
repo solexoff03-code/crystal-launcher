@@ -1,0 +1,64 @@
+.titlebar {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+  background: #080808;
+  border-bottom: 2px solid #1A1A1A;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titlebar-icon {
+  font-size: 16px;
+  background: linear-gradient(135deg, #5BAD2A, #FFAA00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 4px rgba(91,173,42,.4));
+}
+
+.titlebar-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: #D0D0D0;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.titlebar-version {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 6px;
+  color: #7A7A7A;
+  margin-left: 6px;
+}
+
+.titlebar-buttons {
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 28px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid #2E2E2E;
+  color: #7A7A7A;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all .1s;
+  font-family: monospace;
+}
+.titlebar-btn:hover { background: #2A2A2A; color: #fff; border-color: #444; }
+.titlebar-btn.close:hover { background: #C0392B; color: #fff; border-color: #C0392B; }
