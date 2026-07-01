@@ -24,9 +24,10 @@
   },
   "dependencies": {
     "@azure/msal-node": "^2.6.0",
-    "axios": "^1.6.0",
     "adm-zip": "^0.5.10",
+    "axios": "^1.6.0",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.8.9",
     "fs-extra": "^11.2.0",
     "minecraft-launcher-core": "^3.18.1",
     "node-fetch": "^2.7.0",
@@ -39,7 +40,7 @@
     "@electron/rebuild": "^3.4.0",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "^28.1.0",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "react-scripts": "5.0.1",
     "wait-on": "^7.2.0"
@@ -62,15 +63,32 @@
       "main": "src/main/main.js"
     },
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "public/icon.ico"
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
       "icon": "public/icon.icns"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "public/icon.png",
       "category": "Game"
     },
@@ -87,7 +105,16 @@
     }
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version"
+    ]
+  },
+  "paths": {
+    "src/index.js": "src/renderer/index.js"
   }
 }
